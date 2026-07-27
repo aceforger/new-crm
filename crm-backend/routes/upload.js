@@ -41,7 +41,7 @@ router.post("/leads", authenticate, upload.single("file"), async (req, res) => {
 
     const batchSize = 500;
     const values = [];
-    const filePhones = new Set(); // Track phones within this file
+    const filePhones = new Set();
     let imported = 0;
     let skipped = 0;
     let duplicates = 0;
@@ -76,6 +76,24 @@ router.post("/leads", authenticate, upload.single("file"), async (req, res) => {
         if (digits.length === 10) {
           phone = `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
         }
+      }
+
+      // Remove any words or text after the phone number
+      phone = phone.replace(/[a-zA-Z].*$/, "").trim();
+      // Remove trailing non-digit characters
+      phone = phone.replace(/[,;.\s-]+$/, "").trim();
+
+      // Remove duplicate phones within the same lead
+      if (phone.includes(",")) {
+        const phones = phone.split(",").map((p) => p.trim());
+        phone = [...new Set(phones)].join(", ");
+      }
+
+      // Skip non-US/Canada numbers (must be 10 digits)
+      const firstPhoneDigits = phone.split(",")[0].replace(/\D/g, "");
+      if (firstPhoneDigits.length !== 10) {
+        skipped++;
+        continue;
       }
 
       const email = row.email?.toString().trim() || null;
