@@ -27,10 +27,25 @@ const adminOnly = (req, res, next) => {
 };
 
 // GET all agents
+// router.get("/", adminOnly, async (req, res) => {
+//   try {
+//     const [agents] = await db.query(
+//       "SELECT id, name, email, role, status, created_at FROM users WHERE role != 'admin'",
+//     );
+//     res.json(agents);
+//   } catch (err) {
+//     res.status(500).json({ message: "Server error" });
+//   }
+// });
+
+// GET all agents
 router.get("/", adminOnly, async (req, res) => {
   try {
     const [agents] = await db.query(
-      "SELECT id, name, email, role, status, created_at FROM users WHERE role != 'admin'",
+      `SELECT u.id, u.name, u.email, u.role, u.status, u.created_at,
+       (SELECT COUNT(*) FROM leads WHERE assigned_agent_id = u.id AND (cooling_until IS NULL OR cooling_until < NOW())) as active_leads,
+       (SELECT COUNT(*) FROM leads WHERE assigned_agent_id = u.id AND is_pinned = 1) as pinned_leads
+       FROM users u WHERE u.role != 'admin'`,
     );
     res.json(agents);
   } catch (err) {

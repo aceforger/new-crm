@@ -106,7 +106,8 @@ export default function AgentDashboard() {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => {
-        setClosers(res.data.filter((a) => a.role === "closer"));
+        // setClosers(res.data.filter((a) => a.role === "closer"));
+        setClosers(res.data);
       })
       .catch(() => {});
   }, []);
@@ -918,13 +919,21 @@ export default function AgentDashboard() {
                           >
                             {lead.name}
                           </td>
-                          <td className="p-3 text-sm text-gray-600">
+                          <td
+                            className={`p-3 text-sm ${lead.is_wrong_number ? "text-red-600 line-through" : "text-gray-600"}`}
+                          >
                             {lead.phone?.split(",")[0]?.trim()}
                             {lead.phone?.includes(",") && (
                               <span className="text-xs text-blue-500 ml-1">
                                 +{lead.phone.split(",").length - 1}
                               </span>
                             )}
+                            {lead.is_wrong_number &&
+                              lead.wrong_number_notes && (
+                                <p className="text-xs text-orange-600 mt-0.5 no-underline">
+                                  📝 {lead.wrong_number_notes}
+                                </p>
+                              )}
                           </td>
                           <td className="p-3 text-xs text-gray-600">
                             {lead.email || "-"}
@@ -982,6 +991,35 @@ export default function AgentDashboard() {
                             {(lead.status === "new" ||
                               lead.status === "contacted") &&
                               transferAgentId[lead.id] === "" && (
+                                // <select
+                                //   value=""
+                                //   onChange={(e) => {
+                                //     const closerId = e.target.value;
+                                //     if (closerId) {
+                                //       setTransferAgentId({
+                                //         ...transferAgentId,
+                                //         [lead.id]: closerId,
+                                //       });
+                                //       handleStatusChange(
+                                //         lead.id,
+                                //         "transferred",
+                                //         closerId,
+                                //       );
+                                //       // Auto-open detail modal
+                                //       setDetailLead(lead);
+                                //       setShowDetailModal(true);
+                                //       lastSavedRef.current = null;
+                                //     }
+                                //   }}
+                                //   className="text-xs border border-purple-300 rounded px-2 py-1 mt-1 focus:outline-none focus:border-purple-500 w-full bg-purple-50"
+                                // >
+                                //   <option value="">Pick closer</option>
+                                //   {closers.map((c) => (
+                                //     <option key={c.id} value={c.id}>
+                                //       {c.name}
+                                //     </option>
+                                //   ))}
+                                // </select>
                                 <select
                                   value=""
                                   onChange={(e) => {
@@ -996,7 +1034,6 @@ export default function AgentDashboard() {
                                         "transferred",
                                         closerId,
                                       );
-                                      // Auto-open detail modal
                                       setDetailLead(lead);
                                       setShowDetailModal(true);
                                       lastSavedRef.current = null;
@@ -1004,10 +1041,10 @@ export default function AgentDashboard() {
                                   }}
                                   className="text-xs border border-purple-300 rounded px-2 py-1 mt-1 focus:outline-none focus:border-purple-500 w-full bg-purple-50"
                                 >
-                                  <option value="">Pick closer</option>
+                                  <option value="">Pick agent</option>
                                   {closers.map((c) => (
                                     <option key={c.id} value={c.id}>
-                                      {c.name}
+                                      {c.name} ({c.role})
                                     </option>
                                   ))}
                                 </select>
@@ -1052,6 +1089,32 @@ export default function AgentDashboard() {
                                 className={`text-xs font-medium px-2 py-1 rounded cursor-pointer ${lead.is_pinned ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
                               >
                                 {lead.is_pinned ? "Pinned" : "Pin"}
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  if (
+                                    !confirm("Mark this lead as wrong number?")
+                                  )
+                                    return;
+                                  try {
+                                    await axios.patch(
+                                      `${API_URL}/leads/${lead.id}/wrong-number`,
+                                      { notes: null },
+                                      {
+                                        headers: {
+                                          Authorization: `Bearer ${localStorage.getItem("token")}`,
+                                        },
+                                      },
+                                    );
+                                    fetchLeads();
+                                  } catch (err) {
+                                    alert("Failed to mark as wrong number");
+                                  }
+                                }}
+                                className="text-xs font-medium px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200 cursor-pointer"
+                                title="Wrong Number"
+                              >
+                                ✗ Wrong
                               </button>
                             </div>
                           </td>

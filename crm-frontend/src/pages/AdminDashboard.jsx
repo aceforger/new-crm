@@ -529,6 +529,8 @@ export default function AdminDashboard() {
                       <th className="pb-3 font-medium">Email</th>
                       <th className="pb-3 font-medium">Role</th>
                       <th className="pb-3 font-medium">Status</th>
+                      <th className="pb-3 font-medium">Active Leads</th>
+                      <th className="pb-3 font-medium">Pinned Leads</th>
                       <th className="pb-3 font-medium">Created</th>
                       <th className="pb-3 font-medium">Action</th>
                     </tr>
@@ -564,6 +566,12 @@ export default function AdminDashboard() {
                           >
                             {agent.status}
                           </button>
+                        </td>
+                        <td className="py-3 text-sm text-gray-900 font-medium">
+                          {agent.active_leads || 0}
+                        </td>
+                        <td className="py-3 text-sm text-gray-900 font-medium">
+                          {agent.pinned_leads || 0}
                         </td>
                         <td className="py-3 text-sm text-gray-500">
                           {new Date(agent.created_at).toLocaleDateString()}

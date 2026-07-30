@@ -122,6 +122,7 @@ export default function LeadsManager() {
       setShowAssignModal(false);
       setSelectedLeads([]);
       fetchLeads();
+      alert(`${selectedLeads.length} leads assigned successfully!`);
     } catch (err) {
       alert("Assignment failed");
     }
@@ -143,13 +144,14 @@ export default function LeadsManager() {
   const handleStripLeads = async () => {
     if (!stripAgent) return alert("Select an agent");
     try {
-      await axios.post(
+      const res = await axios.post(
         `${API_URL}/leads/strip-agent`,
         { agentId: stripAgent, coolingHours },
         { headers: { Authorization: `Bearer ${token}` } },
       );
       setShowStripModal(false);
       fetchLeads();
+      alert(res.data.message || "Leads changed successfully!");
     } catch (err) {
       alert("Failed to strip leads");
     }
@@ -353,7 +355,7 @@ export default function LeadsManager() {
       <div className="flex justify-between items-center mb-6">
         <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
           {/* "assigned", */}
-          {["all", "closed", "unassigned", "duplicates"].map((t) => (
+          {["all", "closed", "unassigned", "duplicates", "wrong"].map((t) => (
             <button
               key={t}
               onClick={() => {
@@ -648,8 +650,15 @@ export default function LeadsManager() {
                   </td>
                   <td className="p-3 text-sm text-gray-900">{lead.id}</td>
                   <td className="p-3 text-sm text-gray-900">{lead.name}</td>
-                  <td className="p-3 text-xs text-gray-600 min-w-[160px] break-words">
+                  <td
+                    className={`p-3 text-xs min-w-[160px] break-words ${lead.is_wrong_number ? "text-red-600 line-through" : "text-gray-600"}`}
+                  >
                     {lead.phone}
+                    {lead.is_wrong_number && (
+                      <span className="text-xs text-red-500 ml-1 no-underline">
+                        [WRONG]
+                      </span>
+                    )}
                   </td>
                   <td className="p-3 text-xs text-gray-600 max-w-[200px] break-words">
                     {lead.book_title || "-"}
@@ -697,9 +706,10 @@ export default function LeadsManager() {
                             })
                             .then((res) => {
                               setEditAgents(res.data);
-                              setEditClosers(
-                                res.data.filter((a) => a.role === "closer"),
-                              );
+                              // setEditClosers(
+                              //   res.data.filter((a) => a.role === "closer"),
+                              // );
+                              setEditClosers(res.data); // Show all active agents
                             })
                             .catch(() => {});
                           setShowEditModal(true);
@@ -716,6 +726,46 @@ export default function LeadsManager() {
                           ? `Notes (${lead.notes_count})`
                           : "Notes"}
                       </button>
+                      <button
+                        onClick={async () => {
+                          if (!confirm(`Delete lead: ${lead.name}?`)) return;
+                          try {
+                            await axios.delete(`${API_URL}/leads/bulk-delete`, {
+                              headers: { Authorization: `Bearer ${token}` },
+                              data: { leadIds: [lead.id] },
+                            });
+                            fetchLeads();
+                          } catch (err) {
+                            alert("Failed to delete lead");
+                          }
+                        }}
+                        className="text-xs font-medium px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200 cursor-pointer"
+                      >
+                        Delete
+                      </button>
+                      {lead.is_wrong_number === 1 && (
+                        <button
+                          onClick={async () => {
+                            if (!confirm("Unmark this lead as wrong number?"))
+                              return;
+                            try {
+                              await axios.patch(
+                                `${API_URL}/leads/${lead.id}/unmark-wrong`,
+                                {},
+                                {
+                                  headers: { Authorization: `Bearer ${token}` },
+                                },
+                              );
+                              fetchLeads();
+                            } catch (err) {
+                              alert("Failed to unmark");
+                            }
+                          }}
+                          className="text-xs font-medium px-2 py-1 rounded bg-green-100 text-green-700 hover:bg-green-200 cursor-pointer"
+                        >
+                          ✓ Fix
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -870,7 +920,7 @@ export default function LeadsManager() {
 
               {editForm.status === "transferred" && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {/* <label className="block text-sm font-medium text-gray-700 mb-1">
                     Transfer to Closer
                   </label>
                   <select
@@ -887,6 +937,27 @@ export default function LeadsManager() {
                     {editClosers.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
+                      </option>
+                    ))}
+                  </select> */}
+
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Transfer to Agent
+                  </label>
+                  <select
+                    value={editForm.transferred_to}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        transferred_to: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="">-- Pick agent --</option>
+                    {editClosers.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({c.role})
                       </option>
                     ))}
                   </select>
@@ -1363,9 +1434,10 @@ export default function LeadsManager() {
                                 })
                                 .then((res) => {
                                   setEditAgents(res.data);
-                                  setEditClosers(
-                                    res.data.filter((a) => a.role === "closer"),
-                                  );
+                                  // setEditClosers(
+                                  //   res.data.filter((a) => a.role === "closer"),
+                                  // );
+                                  setEditClosers(res.data); // Show all active agents
                                 })
                                 .catch(() => {});
                               setShowDupModal(false);

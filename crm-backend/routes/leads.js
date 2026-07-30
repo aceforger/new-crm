@@ -45,6 +45,8 @@ router.get("/", authenticate, adminOnly, async (req, res) => {
     } else if (tab === "duplicates") {
       // Return empty for duplicates tab - handled by separate endpoint
       return res.json({ leads: [], total: 0, page: 1, totalPages: 0 });
+    } else if (tab === "wrong") {
+      whereClause = "WHERE l.is_wrong_number = 1";
     } else {
       whereClause = "WHERE 1=1";
     }
@@ -579,6 +581,40 @@ router.post("/by-ids", authenticate, adminOnly, async (req, res) => {
       [ids],
     );
     res.json({ leads });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// PATCH mark lead as wrong number
+router.patch("/:id/wrong-number", authenticate, async (req, res) => {
+  const { notes } = req.body;
+  try {
+    const [lead] = await db.query(
+      "SELECT * FROM leads WHERE id = ? AND assigned_agent_id = ?",
+      [req.params.id, req.user.id],
+    );
+    if (lead.length === 0)
+      return res.status(403).json({ message: "Not your lead" });
+
+    await db.query(
+      "UPDATE leads SET is_wrong_number = 1, wrong_number_notes = ? WHERE id = ?",
+      [notes || null, req.params.id],
+    );
+    res.json({ message: "Marked as wrong number" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// PATCH unmark wrong number (admin only)
+router.patch("/:id/unmark-wrong", authenticate, adminOnly, async (req, res) => {
+  try {
+    await db.query(
+      "UPDATE leads SET is_wrong_number = 0, wrong_number_notes = NULL WHERE id = ?",
+      [req.params.id],
+    );
+    res.json({ message: "Unmarked as wrong number" });
   } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
