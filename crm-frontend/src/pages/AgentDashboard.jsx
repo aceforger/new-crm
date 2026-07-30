@@ -919,7 +919,7 @@ export default function AgentDashboard() {
                           >
                             {lead.name}
                           </td>
-                          <td
+                          {/* <td
                             className={`p-3 text-sm ${lead.is_wrong_number ? "text-red-600 line-through" : "text-gray-600"}`}
                           >
                             {lead.phone?.split(",")[0]?.trim()}
@@ -934,7 +934,25 @@ export default function AgentDashboard() {
                                   📝 {lead.wrong_number_notes}
                                 </p>
                               )}
+                          </td> */}
+
+                          <td
+                            className={`p-3 text-sm ${lead.is_wrong_number ? "text-red-600" : "text-gray-600"}`}
+                          >
+                            {lead.phone?.includes(",")
+                              ? lead.phone.split(",")[0].trim()
+                              : lead.phone}
+                            {lead.phone?.includes(",") &&
+                              lead.phone.split(",").filter((p) => p.trim())
+                                .length > 1 && (
+                                <span className="text-xs text-blue-500 ml-1">
+                                  +
+                                  {lead.phone.split(",").filter((p) => p.trim())
+                                    .length - 1}
+                                </span>
+                              )}
                           </td>
+
                           <td className="p-3 text-xs text-gray-600">
                             {lead.email || "-"}
                           </td>

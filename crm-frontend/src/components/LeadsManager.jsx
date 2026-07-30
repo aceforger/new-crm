@@ -651,7 +651,7 @@ export default function LeadsManager() {
                   <td className="p-3 text-sm text-gray-900">{lead.id}</td>
                   <td className="p-3 text-sm text-gray-900">{lead.name}</td>
                   <td
-                    className={`p-3 text-xs min-w-[160px] break-words ${lead.is_wrong_number ? "text-red-600 line-through" : "text-gray-600"}`}
+                    className={`p-3 text-xs min-w-[200px] break-words ${lead.is_wrong_number ? "text-red-600 line-through" : "text-gray-600"}`}
                   >
                     {lead.phone}
                     {lead.is_wrong_number && (
