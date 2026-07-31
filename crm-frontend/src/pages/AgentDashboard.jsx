@@ -29,6 +29,7 @@ export default function AgentDashboard() {
   const [closers, setClosers] = useState([]);
 
   const lastSavedRef = useRef(null);
+  const [isTyping, setIsTyping] = useState(false);
 
   const [notifCount, setNotifCount] = useState(0);
   const [showNotifs, setShowNotifs] = useState(false);
@@ -189,10 +190,12 @@ export default function AgentDashboard() {
   useEffect(() => {
     if (showDetailModal && detailLead) {
       fetchDetailData(detailLead.id);
-      const interval = setInterval(() => fetchDetailData(detailLead.id), 50000);
+      const interval = setInterval(() => {
+        if (!isTyping) fetchDetailData(detailLead.id);
+      }, 500000);
       return () => clearInterval(interval);
     }
-  }, [showDetailModal, detailLead, fetchDetailData]);
+  }, [showDetailModal, detailLead, fetchDetailData, isTyping]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -207,6 +210,10 @@ export default function AgentDashboard() {
   }, [showNotifs]);
 
   const saveDetailData = async () => {
+    if (user.role === "opener" && !detailData.opener_notes.trim()) {
+      alert("Please add opener notes before saving.");
+      return;
+    }
     const token = localStorage.getItem("token");
     try {
       const payload = { ...detailData, services: selectedServices.join(",") };
@@ -214,8 +221,20 @@ export default function AgentDashboard() {
         headers: { Authorization: `Bearer ${token}` },
       });
       lastSavedRef.current = JSON.stringify(payload);
+
+      // If closer set a follow-up date, notify opener
+      if (user.role === "closer" && detailData.follow_up_date) {
+        await axios.post(
+          `${API_URL}/leads/${detailLead.id}/notes`,
+          {
+            note: `📅 Follow-up scheduled: ${new Date(detailData.follow_up_date).toLocaleString()}`,
+          },
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+      }
+
       alert("Saved!");
-      setShowDetailModal(false); // Close modal after save
+      setShowDetailModal(false);
     } catch (err) {
       alert("Failed to save");
     }
@@ -671,11 +690,16 @@ export default function AgentDashboard() {
                         {item.name}
                       </p>
                       <p className="text-xs text-gray-500 mt-0.5">
-                        🔄 Lead transferred to you
+                        {item.type === "transfer" &&
+                          "🔄 Lead transferred to you"}
+                        {item.type === "followup_due" &&
+                          "🔔 Follow-up due now!"}
+                        {item.type === "followup_set" &&
+                          "📅 Follow-up scheduled"}
                       </p>
-                      {item.name && (
-                        <p className="text-xs text-gray-400 mt-0.5 truncate">
-                          Author: {item.name}
+                      {item.follow_up_date && (
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {new Date(item.follow_up_date).toLocaleString()}
                         </p>
                       )}
                       {item.book_title && (

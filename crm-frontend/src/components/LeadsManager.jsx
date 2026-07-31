@@ -654,11 +654,6 @@ export default function LeadsManager() {
                     className={`p-3 text-xs min-w-[200px] break-words ${lead.is_wrong_number ? "text-red-600 line-through" : "text-gray-600"}`}
                   >
                     {lead.phone}
-                    {lead.is_wrong_number && (
-                      <span className="text-xs text-red-500 ml-1 no-underline">
-                        [WRONG]
-                      </span>
-                    )}
                   </td>
                   <td className="p-3 text-xs text-gray-600 max-w-[200px] break-words">
                     {lead.book_title || "-"}

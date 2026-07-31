@@ -499,24 +499,79 @@ router.delete("/notes/:noteId", authenticate, async (req, res) => {
 });
 
 // GET notifications for agent
+// router.get("/notifications", authenticate, async (req, res) => {
+//   try {
+//     // Only transferred leads within last 2 minutes
+//     const [transferred] = await db.query(
+//       `SELECT l.id, l.name, l.phone, l.email, l.book_title, l.status, l.assigned_agent_id, l.transferred_to, l.created_at, l.updated_at,
+//    (SELECT COUNT(*) FROM lead_notes WHERE lead_id = l.id) as notes_count,
+//    u.name as transferred_to_name
+//    FROM leads l
+//    LEFT JOIN users u ON l.transferred_to = u.id
+//    WHERE l.transferred_to = ?
+//    AND l.status = 'transferred'
+//    AND l.updated_at >= NOW() - INTERVAL 2 MINUTE
+//    ORDER BY l.updated_at DESC
+//    LIMIT 10`,
+//       [req.user.id],
+//     );
+
+//     res.json({ count: transferred.length, items: transferred });
+//   } catch (err) {
+//     res.status(500).json({ message: "Server error" });
+//   }
+// });
+
 router.get("/notifications", authenticate, async (req, res) => {
   try {
-    // Only transferred leads within last 2 minutes
+    // Transferred leads within last 2 minutes
     const [transferred] = await db.query(
-      `SELECT l.id, l.name, l.phone, l.email, l.book_title, l.status, l.assigned_agent_id, l.transferred_to, l.created_at, l.updated_at,
-   (SELECT COUNT(*) FROM lead_notes WHERE lead_id = l.id) as notes_count,
-   u.name as transferred_to_name
-   FROM leads l 
-   LEFT JOIN users u ON l.transferred_to = u.id
-   WHERE l.transferred_to = ? 
-   AND l.status = 'transferred'
-   AND l.updated_at >= NOW() - INTERVAL 2 MINUTE
-   ORDER BY l.updated_at DESC 
-   LIMIT 10`,
+      `SELECT l.id, l.name, l.book_title, l.status, l.created_at
+       FROM leads l 
+       WHERE l.transferred_to = ? 
+       AND l.status = 'transferred'
+       AND l.updated_at >= NOW() - INTERVAL 2 MINUTE
+       ORDER BY l.updated_at DESC 
+       LIMIT 10`,
       [req.user.id],
     );
 
-    res.json({ count: transferred.length, items: transferred });
+    // Follow-up reminders - due now (within last 5 minutes)
+    const [dueFollowUps] = await db.query(
+      `SELECT l.id, l.name, l.book_title, l.status, ld.follow_up_date
+   FROM leads l
+   JOIN lead_details ld ON l.id = ld.lead_id
+   WHERE (l.assigned_agent_id = ? OR l.transferred_to = ?)
+   AND ld.follow_up_date IS NOT NULL
+   AND ld.follow_up_date != ''
+   AND STR_TO_DATE(ld.follow_up_date, '%Y-%m-%dT%H:%i') <= NOW()
+   AND STR_TO_DATE(ld.follow_up_date, '%Y-%m-%dT%H:%i') >= NOW() - INTERVAL 5 MINUTE
+   ORDER BY ld.follow_up_date DESC
+   LIMIT 10`,
+      [req.user.id, req.user.id],
+    );
+
+    const [newFollowUps] = await db.query(
+      `SELECT l.id, l.name, l.book_title, l.status, ld.follow_up_date
+   FROM leads l
+   JOIN lead_details ld ON l.id = ld.lead_id
+   WHERE (l.assigned_agent_id = ? OR l.transferred_to = ?)
+   AND ld.follow_up_date IS NOT NULL
+   AND ld.follow_up_date != ''
+   AND STR_TO_DATE(ld.follow_up_date, '%Y-%m-%dT%H:%i') > NOW()
+   AND ld.updated_at >= NOW() - INTERVAL 2 MINUTE
+   ORDER BY ld.updated_at DESC
+   LIMIT 10`,
+      [req.user.id, req.user.id],
+    );
+
+    const items = [
+      ...transferred.map((t) => ({ ...t, type: "transfer" })),
+      ...dueFollowUps.map((f) => ({ ...f, type: "followup_due" })),
+      ...newFollowUps.map((f) => ({ ...f, type: "followup_set" })),
+    ];
+
+    res.json({ count: items.length, items });
   } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
