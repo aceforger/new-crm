@@ -68,9 +68,12 @@ export default function LeadsManager() {
       setTotalPages(res.data.totalPages);
     } catch (err) {
       console.error("Failed to fetch leads");
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        localStorage.clear();
+        window.location.href = "/";
+      }
     }
   }, [page, tab, search, limit, token]);
-
   useEffect(() => {
     fetchLeads();
   }, [fetchLeads]);
@@ -434,7 +437,7 @@ export default function LeadsManager() {
       </div>
 
       {/* Search + Actions */}
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-items-start items-center mb-4">
         <form onSubmit={handleSearch} className="flex gap-2">
           <input
             type="text"
@@ -452,7 +455,7 @@ export default function LeadsManager() {
         </form>
 
         {selectedLeads.length > 0 && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 ml-20">
             <span className="text-sm text-gray-500 py-2">
               {selectedLeads.length} selected
             </span>
@@ -608,12 +611,13 @@ export default function LeadsManager() {
                   }
                 />
               </th>
-              <th className="p-3 font-medium">ID</th>
+              {/* <th className="p-3 font-medium">ID</th> */}
               <th className="p-3 font-medium">Name</th>
               <th className="p-3 font-medium min-w-[160px]">Phone</th>
               <th className="p-3 font-medium">Book Title</th>
               <th className="p-3 font-medium">Status</th>
               <th className="p-3 font-medium">Agent</th>
+              <th className="p-3 font-medium">Transferred To</th>
               <th className="p-3 font-medium">Cooling</th>
               <th className="p-3 font-medium">Action</th>
             </tr>
@@ -648,14 +652,14 @@ export default function LeadsManager() {
                       <span className="text-gray-300 text-sm">🔒</span>
                     )}
                   </td>
-                  <td className="p-3 text-sm text-gray-900">{lead.id}</td>
+                  {/* <td className="p-3 text-sm text-gray-900">{lead.id}</td> */}
                   <td className="p-3 text-sm text-gray-900">{lead.name}</td>
                   <td
-                    className={`p-3 text-xs min-w-[200px] break-words ${lead.is_wrong_number ? "text-red-600 line-through" : "text-gray-600"}`}
+                    className={`p-3 text-xs min-w-[160px] break-words ${lead.is_wrong_number ? "text-red-600 line-through" : "text-gray-600"}`}
                   >
                     {lead.phone}
                   </td>
-                  <td className="p-3 text-xs text-gray-600 max-w-[200px] break-words">
+                  <td className="p-3 text-[11px] text-gray-600 max-w-[250px] break-words">
                     {lead.book_title || "-"}
                   </td>
                   <td className="p-3">
@@ -667,6 +671,9 @@ export default function LeadsManager() {
                   </td>
                   <td className="p-3 text-sm text-gray-600">
                     {lead.agent_name || "-"}
+                  </td>
+                  <td className="p-3 text-sm text-gray-600">
+                    {lead.transferred_to_name || "-"}
                   </td>
                   <td className="p-3">
                     {isCooling(lead) ? (
@@ -913,7 +920,8 @@ export default function LeadsManager() {
                 </select>
               </div>
 
-              {editForm.status === "transferred" && (
+              {(editForm.status === "transferred" ||
+                editForm.status === "closed") && (
                 <div>
                   {/* <label className="block text-sm font-medium text-gray-700 mb-1">
                     Transfer to Closer
@@ -1125,7 +1133,7 @@ export default function LeadsManager() {
       {/* Assign Modal */}
       {showAssignModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-900">
                 Assign Leads

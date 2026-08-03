@@ -66,6 +66,7 @@ export default function SearchLeads() {
                 <th className="p-3 font-medium">Book Title</th>
                 <th className="p-3 font-medium">Status</th>
                 <th className="p-3 font-medium">Agent</th>
+                <th className="p-3 font-medium">Transferred To</th>
               </tr>
             </thead>
             <tbody>
@@ -99,6 +100,9 @@ export default function SearchLeads() {
                   </td>
                   <td className="p-3 text-sm text-gray-600">
                     {lead.agent_name || "Unassigned"}
+                  </td>
+                  <td className="p-3 text-sm text-gray-600">
+                    {lead.transferred_to_name || "-"}
                   </td>
                 </tr>
               ))}

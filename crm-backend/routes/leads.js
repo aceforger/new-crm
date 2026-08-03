@@ -68,10 +68,11 @@ router.get("/", authenticate, adminOnly, async (req, res) => {
     );
 
     const [leads] = await db.query(
-      `SELECT l.*, u.name as agent_name,
+      `SELECT l.*, u.name as agent_name, u2.name as transferred_to_name,
    (SELECT COUNT(*) FROM lead_notes WHERE lead_id = l.id) as notes_count
    FROM leads l 
-   LEFT JOIN users u ON l.assigned_agent_id = u.id 
+   LEFT JOIN users u ON l.assigned_agent_id = u.id
+   LEFT JOIN users u2 ON l.transferred_to = u2.id 
    ${whereClause} 
    ORDER BY l.created_at DESC 
    LIMIT ? OFFSET ?`,
@@ -170,6 +171,60 @@ router.post("/remove-cooling", authenticate, adminOnly, async (req, res) => {
   }
 });
 
+// // GET agent's own leads
+// router.get("/my-leads", authenticate, async (req, res) => {
+//   try {
+//     const page = parseInt(req.query.page) || 1;
+//     const limit = parseInt(req.query.limit) || 20;
+//     const offset = (page - 1) * limit;
+//     const search = req.query.search || "";
+//     const tab = req.query.tab || "active";
+
+//     let whereClause = "";
+//     const params = [req.user.id];
+
+//     if (tab === "pinned") {
+//       whereClause =
+//         "AND l.is_pinned = 1 AND (l.assigned_agent_id = ? OR l.transferred_to = ?)";
+//       params.push(req.user.id);
+//     } else {
+//       whereClause =
+//         "AND l.is_pinned = 0 AND l.assigned_agent_id = ? AND (l.cooling_until IS NULL OR l.cooling_until < NOW())";
+//     }
+
+//     if (search) {
+//       whereClause +=
+//         " AND (REPLACE(LOWER(l.name), ' ', '') LIKE ? OR REPLACE(REPLACE(REPLACE(REPLACE(l.phone, '(', ''), ')', ''), '-', ''), ' ', '') LIKE ? OR l.email LIKE ?)";
+//       const cleanSearch = search.replace(/\D/g, "");
+//       const cleanName = search.toLowerCase().replace(/\s+/g, "");
+//       params.push(
+//         `%${cleanName}%`,
+//         cleanSearch ? `%${cleanSearch}%` : "NOTHING_MATCHES",
+//         `%${search}%`,
+//       );
+//     }
+
+//     const [[{ total }]] = await db.query(
+//       `SELECT COUNT(*) as total FROM leads l WHERE 1=1 ${whereClause}`,
+//       params,
+//     );
+
+//     const [leads] = await db.query(
+//       `SELECT l.*,
+//    (SELECT COUNT(*) FROM lead_notes WHERE lead_id = l.id) as notes_count
+//    FROM leads l WHERE 1=1 ${whereClause}
+//    ORDER BY l.created_at DESC
+//    LIMIT ? OFFSET ?`,
+//       [...params, limit, offset],
+//     );
+
+//     res.json({ leads, total, page, totalPages: Math.ceil(total / limit) });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// });
+
 // GET agent's own leads
 router.get("/my-leads", authenticate, async (req, res) => {
   try {
@@ -178,6 +233,7 @@ router.get("/my-leads", authenticate, async (req, res) => {
     const offset = (page - 1) * limit;
     const search = req.query.search || "";
     const tab = req.query.tab || "active";
+    const statusFilter = req.query.statusFilter || "";
 
     let whereClause = "";
     const params = [req.user.id];
@@ -189,6 +245,11 @@ router.get("/my-leads", authenticate, async (req, res) => {
     } else {
       whereClause =
         "AND l.is_pinned = 0 AND l.assigned_agent_id = ? AND (l.cooling_until IS NULL OR l.cooling_until < NOW())";
+    }
+
+    if (statusFilter) {
+      whereClause += " AND l.status = ?";
+      params.push(statusFilter);
     }
 
     if (search) {
@@ -209,9 +270,14 @@ router.get("/my-leads", authenticate, async (req, res) => {
     );
 
     const [leads] = await db.query(
-      `SELECT l.*,
-   (SELECT COUNT(*) FROM lead_notes WHERE lead_id = l.id) as notes_count
-   FROM leads l WHERE 1=1 ${whereClause} 
+      `SELECT l.*, 
+  u2.name as transferred_to_name,
+  u3.name as transferred_by_name,
+  (SELECT COUNT(*) FROM lead_notes WHERE lead_id = l.id) as notes_count
+FROM leads l
+LEFT JOIN users u2 ON l.transferred_to = u2.id
+LEFT JOIN users u3 ON l.assigned_agent_id = u3.id
+WHERE 1=1 ${whereClause} 
    ORDER BY l.created_at DESC 
    LIMIT ? OFFSET ?`,
       [...params, limit, offset],
@@ -242,8 +308,8 @@ router.patch("/:id/status", authenticate, async (req, res) => {
       return res.status(403).json({ message: "Not your lead" });
 
     const isPinned = status === "transferred" || status === "closed" ? 1 : 0;
-    const transferredTo = status === "transferred" ? transferTo : null;
-
+    const transferredTo =
+      status === "transferred" ? transferTo : lead[0].transferred_to;
     await db.query(
       "UPDATE leads SET status = ?, is_pinned = ?, transferred_to = ?, updated_at = NOW() WHERE id = ?",
       [status, isPinned, transferredTo, leadId],
@@ -586,9 +652,10 @@ router.get("/search-all", authenticate, async (req, res) => {
 
   try {
     const [leads] = await db.query(
-      `SELECT l.*, u.name as agent_name 
+      `SELECT l.*, u.name as agent_name, u2.name as transferred_to_name
        FROM leads l 
        LEFT JOIN users u ON l.assigned_agent_id = u.id 
+       LEFT JOIN users u2 ON l.transferred_to = u2.id
        WHERE REPLACE(LOWER(l.name), ' ', '') LIKE ? 
        OR REPLACE(REPLACE(REPLACE(REPLACE(l.phone, '(', ''), ')', ''), '-', ''), ' ', '') LIKE ?
        OR l.email LIKE ? 

@@ -30,6 +30,7 @@ export default function AgentDashboard() {
 
   const lastSavedRef = useRef(null);
   const [isTyping, setIsTyping] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("");
 
   const [notifCount, setNotifCount] = useState(0);
   const [showNotifs, setShowNotifs] = useState(false);
@@ -115,21 +116,28 @@ export default function AgentDashboard() {
 
   const fetchLeads = useCallback(async () => {
     const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/");
+      return;
+    }
     setLoading(true);
     try {
       const res = await axios.get(`${API_URL}/leads/my-leads`, {
         headers: { Authorization: `Bearer ${token}` },
-        params: { page, limit, search, tab },
+        params: { page, limit, search, tab, statusFilter },
       });
       setLeads(res.data.leads);
       setTotal(res.data.total);
       setTotalPages(res.data.totalPages);
     } catch (err) {
-      console.error("Failed to fetch leads");
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        localStorage.clear();
+        navigate("/");
+      }
     } finally {
       setLoading(false);
     }
-  }, [page, tab, search, limit]);
+  }, [page, tab, search, limit, statusFilter]);
 
   useEffect(() => {
     if (user) fetchLeads();
@@ -807,6 +815,29 @@ export default function AgentDashboard() {
               </span>
             </div>
 
+            {tab === "pinned" && (
+              <div className="flex gap-2 mb-4">
+                <button
+                  onClick={() => setStatusFilter("")}
+                  className={`px-3 py-1 text-xs rounded-full border ${!statusFilter ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-300"}`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setStatusFilter("transferred")}
+                  className={`px-3 py-1 text-xs rounded-full border ${statusFilter === "transferred" ? "bg-purple-600 text-white border-purple-600" : "bg-white text-gray-600 border-gray-300"}`}
+                >
+                  Transferred
+                </button>
+                <button
+                  onClick={() => setStatusFilter("closed")}
+                  className={`px-3 py-1 text-xs rounded-full border ${statusFilter === "closed" ? "bg-green-600 text-white border-green-600" : "bg-white text-gray-600 border-gray-300"}`}
+                >
+                  Closed
+                </button>
+              </div>
+            )}
+
             {/* Pagination */}
             <div className="flex justify-between items-center mt-4">
               <div className="flex items-center gap-2">
@@ -880,6 +911,7 @@ export default function AgentDashboard() {
                       <th className="p-3 font-medium">Email</th>
                       <th className="p-3 font-medium">Book Title</th>
                       <th className="p-3 font-medium">Status</th>
+                      <th className="p-3 font-medium">Transfer</th>
                       <th className="p-3 font-medium">Action</th>
                     </tr>
                   </thead>
@@ -887,7 +919,7 @@ export default function AgentDashboard() {
                     {loading ? (
                       <tr>
                         <td
-                          colSpan="6"
+                          colSpan="7"
                           className="text-center py-12 text-gray-400 text-sm"
                         >
                           Loading...
@@ -896,7 +928,7 @@ export default function AgentDashboard() {
                     ) : leads.length === 0 ? (
                       <tr>
                         <td
-                          colSpan="6"
+                          colSpan="7"
                           className="text-center py-12 text-gray-400 text-sm"
                         >
                           No leads found
@@ -1097,6 +1129,15 @@ export default function AgentDashboard() {
                                   To: {lead.transferred_to_name}
                                 </p>
                               )}
+                          </td>
+                          <td className="p-3 text-sm text-gray-600">
+                            {lead.transferred_to_name &&
+                            lead.transferred_to_name !== user.name
+                              ? `→ ${lead.transferred_to_name}`
+                              : lead.transferred_by_name &&
+                                  lead.transferred_by_name !== user.name
+                                ? `← ${lead.transferred_by_name}`
+                                : "-"}
                           </td>
                           <td className="p-3">
                             <div className="flex items-center gap-2">
