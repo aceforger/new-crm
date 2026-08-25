@@ -742,4 +742,37 @@ router.patch("/:id/unmark-wrong", authenticate, adminOnly, async (req, res) => {
   }
 });
 
+// POST add lead manually (admin only)
+router.post("/manual-add", authenticate, adminOnly, async (req, res) => {
+  const { name, phone, email, book_title } = req.body;
+
+  if (!name || !phone) {
+    return res.status(400).json({ message: "Name and phone required" });
+  }
+
+  try {
+    // Normalize phone
+    let normalizedPhone = phone.trim();
+    const digits = normalizedPhone.replace(/\D/g, "");
+    if (digits.length === 10) {
+      normalizedPhone = `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    }
+
+    const [result] = await db.query(
+      "INSERT INTO leads (name, phone, email, book_title) VALUES (?, ?, ?, ?)",
+      [name.trim(), normalizedPhone, email || null, book_title || null],
+    );
+
+    await db.query(
+      "INSERT INTO activity_logs (user_id, action, details) VALUES (?, ?, ?)",
+      [req.user.id, "add_lead", `Lead ${name} added manually`],
+    );
+
+    res.status(201).json({ message: "Lead added", leadId: result.insertId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 module.exports = router;

@@ -55,6 +55,14 @@ export default function LeadsManager() {
   const [editAgents, setEditAgents] = useState([]);
   const [editClosers, setEditClosers] = useState([]);
 
+  const [showAddLeadModal, setShowAddLeadModal] = useState(false);
+  const [newLead, setNewLead] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    book_title: "",
+  });
+
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const fetchLeads = useCallback(async () => {
@@ -270,6 +278,23 @@ export default function LeadsManager() {
     }
   };
 
+  const handleAddLead = async () => {
+    if (!newLead.name || !newLead.phone) {
+      return alert("Name and phone required");
+    }
+    try {
+      await axios.post(`${API_URL}/leads/manual-add`, newLead, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setShowAddLeadModal(false);
+      setNewLead({ name: "", phone: "", email: "", book_title: "" });
+      fetchLeads();
+      alert("Lead added successfully!");
+    } catch (err) {
+      alert("Failed to add lead");
+    }
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case "new":
@@ -382,6 +407,12 @@ export default function LeadsManager() {
             className="hidden"
           />
           <button
+            onClick={() => setShowAddLeadModal(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
+          >
+            + Add Lead
+          </button>
+          <button
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
             className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-70 transition relative overflow-hidden"
@@ -413,6 +444,7 @@ export default function LeadsManager() {
               "Import Leads"
             )}
           </button>
+
           {uploading && (
             <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
               <div
@@ -821,6 +853,107 @@ export default function LeadsManager() {
           </div>
         )}
       </div>
+
+      {/* Add Lead Modal */}
+      {showAddLeadModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Add New Lead
+              </h3>
+              <button
+                onClick={() => setShowAddLeadModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={newLead.name}
+                  onChange={(e) =>
+                    setNewLead({ ...newLead, name: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Phone
+                </label>
+                <input
+                  type="text"
+                  value={newLead.phone}
+                  onChange={(e) =>
+                    setNewLead({ ...newLead, phone: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={newLead.email}
+                  onChange={(e) =>
+                    setNewLead({ ...newLead, email: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Book Title
+                </label>
+                <input
+                  type="text"
+                  value={newLead.book_title}
+                  onChange={(e) =>
+                    setNewLead({ ...newLead, book_title: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowAddLeadModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddLead}
+                className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
+              >
+                Add Lead
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Lead Modal */}
       {showEditModal && editLead && (
